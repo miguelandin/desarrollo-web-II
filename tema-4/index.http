@@ -1,0 +1,137 @@
+### Variables
+@baseUrl = http://localhost:3000
+@apiUrl = {{baseUrl}}/api
+
+### ============================================
+### HEALTH CHECK
+### ============================================
+
+### Ruta raíz y health check
+GET {{baseUrl}}/health
+
+### Info del API
+GET {{apiUrl}}/
+
+### ============================================
+### CURSOS - GET (Lectura)
+### ============================================
+
+### Obtener todos los cursos
+GET {{apiUrl}}/cursos/programacion
+
+### Obtener curso por ID (existente)
+GET {{apiUrl}}/cursos/programacion/1
+
+### Obtener curso por ID (no existente - debe dar 404)
+GET {{apiUrl}}/cursos/programacion/999
+
+### ============================================
+### CURSOS - POST (Crear)
+### ============================================
+
+### Crear curso válido
+POST {{apiUrl}}/cursos/programacion
+Content-Type: application/json
+
+{
+    "titulo": "React desde cero",
+    "lenguaje": "javascript",
+    "nivel": "basico",
+    "descripcion": "Aprende React paso a paso"
+}
+
+### Crear curso - Error validación (título muy corto)
+POST {{apiUrl}}/cursos/programacion
+Content-Type: application/json
+
+{
+    "titulo": "Re",
+    "lenguaje": "javascript",
+    "nivel": "basico"
+}
+
+### Crear curso - Error validación (lenguaje inválido)
+POST {{apiUrl}}/cursos/programacion
+Content-Type: application/json
+
+{
+    "titulo": "Curso de Go",
+    "lenguaje": "golang",
+    "nivel": "basico"
+}
+
+### Crear curso - Error validación (nivel inválido)
+POST {{apiUrl}}/cursos/programacion
+Content-Type: application/json
+
+{
+    "titulo": "Curso de Python",
+    "lenguaje": "python",
+    "nivel": "experto"
+}
+
+### ============================================
+### CURSOS - PUT (Actualizar completo)
+### ============================================
+
+### Actualizar curso existente
+PUT {{apiUrl}}/cursos/programacion/1
+Content-Type: application/json
+
+{
+    "titulo": "JavaScript Moderno ES2024",
+    "lenguaje": "javascript",
+    "nivel": "intermedio",
+    "descripcion": "Actualizado con las últimas features"
+}
+
+### Actualizar curso no existente
+PUT {{apiUrl}}/cursos/programacion/999
+Content-Type: application/json
+
+{
+    "titulo": "Curso fantasma",
+    "lenguaje": "python",
+    "nivel": "basico"
+}
+
+### ============================================
+### CURSOS - PATCH (Actualizar parcial)
+### ============================================
+
+### Actualizar solo el nivel
+PATCH {{apiUrl}}/cursos/programacion/2
+Content-Type: application/json
+
+{
+    "nivel": "intermedio"
+}
+
+### Actualizar solo el título
+PATCH {{apiUrl}}/cursos/programacion/2
+Content-Type: application/json
+
+{
+    "titulo": "Node.js Masterclass"
+}
+
+### ============================================
+### CURSOS - DELETE (Eliminar)
+### ============================================
+
+### Eliminar curso existente
+DELETE {{apiUrl}}/cursos/programacion/3
+
+### Eliminar curso no existente
+DELETE {{apiUrl}}/cursos/programacion/999
+
+### ============================================
+### ERRORES - Rutas no encontradas
+### ============================================
+
+### Ruta que no existe
+GET {{apiUrl}}/ruta/inexistente
+
+### Método no permitido
+POST {{baseUrl}}/
+

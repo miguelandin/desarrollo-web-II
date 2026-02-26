@@ -1,0 +1,22 @@
+{
+    "name": "api-1",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "module",
+    "dependencies": {
+        "cors": "^2.8.6",
+        "express": "^5.2.1",
+        "mongodb": "^7.1.0",
+        "mongoose": "^9.2.1",
+        "multer": "^2.0.2",
+        "zod": "^4.3.6"
+    },
+    "scripts": {
+        "dev": "node --watch --env-file=.env src/app.js",
+        "start": "node --env-file=.env src/app.js"
+    }
+}

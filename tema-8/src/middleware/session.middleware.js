@@ -9,13 +9,13 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const token = req.headers.authorization.split(' ').pop();
-    const dataToken = verifyToken(token);
+    const decoded = verifyToken(token);
 
-    if (!dataToken || !dataToken._id) {
+    if (!decoded || !decoded.userId) {
       return handleHttpError(res, 'INVALID_TOKEN', 401);
     }
 
-    const user = await User.findById(dataToken._id);
+    const user = await User.findById(decoded.userId);
 
     if (!user) {
       return handleHttpError(res, 'USER_NOT_FOUND', 401);

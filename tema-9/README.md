@@ -39,8 +39,5 @@ curl -s -X PUT http://localhost:3000/api/loans/1/return \
 
 Dejar una reseña al libro con id 1:
 ```bash
-curl -s -X POST http://localhost:3000/api/books/1/reviews \
-  -H "Authorization: Bearer $TOKEN" \            
-  -H "Content-Type: application/json" \
-  -d '{"rating": 5, "comment": "¡Un libro increíble, la magia de la alomancia es fascinante!"}' | jq
+curl -s -X POST http://localhost:3000/api/books/1/reviews -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{"rating": 5, "comment": "¡Un libro increíble, la magia de la alomancia es fascinante!"}' | jq
 ```

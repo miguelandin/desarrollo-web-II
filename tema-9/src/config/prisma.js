@@ -1,23 +1,22 @@
-// src/config/prisma.js
-// Singleton del cliente Prisma
-
 import { PrismaClient } from '@prisma/client';
 
-// Crear una única instancia
-const prisma = new PrismaClient({
-  log: process.env.NODE_ENV === 'development'
-    ? ['query', 'info', 'warn', 'error']
-    : ['error']
-});
+// Creamos una función para instanciar el cliente
+const prismaClientSingleton = () => {
+    return new PrismaClient({
+        // Esto mostrará las consultas SQL en la terminal si estás en desarrollo
+        log: process.env.NODE_ENV === 'development'
+            ? ['query', 'error', 'warn']
+            : ['error'],
+    });
+};
 
-// Middleware para logging de queries (opcional)
-prisma.$use(async (params, next) => {
-  const before = Date.now();
-  const result = await next(params);
-  const after = Date.now();
+// Usamos globalThis para evitar múltiples conexiones en modo desarrollo con nodemon/watch
+const globalForPrisma = globalThis;
 
-  console.log(`Query ${params.model}.${params.action} took ${after - before}ms`);
-  return result;
-});
+const prisma = globalForPrisma.prisma ?? prismaClientSingleton();
+
+if (process.env.NODE_ENV !== 'production') {
+    globalForPrisma.prisma = prisma;
+}
 
 export default prisma;

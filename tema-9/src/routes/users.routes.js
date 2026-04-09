@@ -1,19 +1,13 @@
-// src/routes/users.routes.js
 import { Router } from 'express';
-import * as usersController from '../controllers/users.controller.js';
+import { getMe } from '../controllers/users.controller.js';
+import { auth } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-// CRUD básico
-router.get('/', usersController.getUsers);
-router.get('/search', usersController.searchUsers);
-router.get('/stats', usersController.getUserStats);
-router.get('/:id', usersController.getUserById);
-router.post('/', usersController.createUser);
-router.post('/with-profile', usersController.createUserWithProfile);
-router.post('/with-post', usersController.createUserWithPost);
-router.put('/:id', usersController.updateUser);
-router.put('/upsert', usersController.upsertUser);
-router.delete('/:id', usersController.deleteUser);
+// Todas las rutas de este archivo requerirán autenticación
+router.use(auth);
+
+// GET /api/users/me (o /api/auth/me dependiendo de cómo lo montes)
+router.get('/me', getMe);
 
 export default router;

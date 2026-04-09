@@ -20,7 +20,7 @@ export const registerCtrl = async (req, res) => {
 
         const data = {
             token: tokenSign(user),
-            user
+            userResponse
         };
 
         res.status(201).json(data);

@@ -1,0 +1,106 @@
+// Prisma Schema - Ejemplo T9
+// Documentación: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ==================== ENUMS ====================
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ==================== MODELS ====================
+
+// Modelo de Usuario
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  posts    Post[]
+  comments Comment[]
+  profile  Profile?
+
+  @@map("users")
+}
+
+// Modelo de Perfil (relación 1:1)
+model Profile {
+  id     Int     @id @default(autoincrement())
+  bio    String? @db.Text
+  avatar String?
+
+  // Relación con User
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int  @unique
+
+  @@map("profiles")
+}
+
+// Modelo de Post (relación 1:N con User)
+model Post {
+  id        Int        @id @default(autoincrement())
+  title     String
+  content   String?    @db.Text
+  status    PostStatus @default(DRAFT)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Relación con User
+  author   User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId Int
+
+  // Relación con Comments
+  comments Comment[]
+
+  // Relación N:M con Tags
+  tags Tag[]
+
+  @@index([authorId])
+  @@index([status])
+  @@map("posts")
+}
+
+// Modelo de Comentario
+model Comment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  createdAt DateTime @default(now())
+
+  // Relaciones
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId Int
+
+  @@index([postId])
+  @@map("comments")
+}
+
+// Modelo de Tag (relación N:M con Post)
+model Tag {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  posts Post[]
+
+  @@map("tags")
+}

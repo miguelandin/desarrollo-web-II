@@ -1,8 +1,6 @@
-import prisma from '../config/prisma.js';
-
 export const createReview = async (req, res, next) => {
     try {
-        const { bookId } = req.params;
+        const { id } = req.params;
         const { rating, comment } = req.body;
         const userId = req.user.id;
 
@@ -11,7 +9,7 @@ export const createReview = async (req, res, next) => {
         }
 
         const hasRead = await prisma.loan.findFirst({
-            where: { userId, bookId: Number(bookId), status: 'RETURNED' }
+            where: { userId, bookId: Number(id), status: 'RETURNED' }
         });
 
         if (!hasRead) {
@@ -19,35 +17,10 @@ export const createReview = async (req, res, next) => {
         }
 
         const review = await prisma.review.create({
-            data: { rating, comment, userId, bookId: Number(bookId) }
+            data: { rating, comment, userId, bookId: Number(id) } 
         });
 
         res.status(201).json({ data: review });
-    } catch (error) {
-        next(error);
-    }
-};
-
-// NUEVA FUNCIÓN PARA ELIMINAR
-export const deleteReview = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-
-        const review = await prisma.review.findUnique({
-            where: { id: Number(id) }
-        });
-
-        if (!review) return res.status(404).json({ message: 'Reseña no encontrada' });
-
-        if (review.userId !== req.user.id && req.user.role !== 'ADMIN') {
-            return res.status(403).json({ message: 'No tienes permisos para eliminar esta reseña' });
-        }
-
-        await prisma.review.delete({
-            where: { id: Number(id) }
-        });
-
-        res.json({ message: 'Reseña eliminada correctamente' });
     } catch (error) {
         next(error);
     }

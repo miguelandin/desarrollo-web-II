@@ -1,7 +1,7 @@
 ### Iniciar bd
 ```bash
-npx prisma push # pasar estructura de la bd
-npx prisma seed # poner valores por defecto a la bd
+npx prisma db push # pasar estructura de la bd
+npx prisma db seed # poner valores por defecto a la bd
 ```
 
 ### Consultas para probar
@@ -13,15 +13,12 @@ Ver todos los libros filtrados por género:
 ```bash
 curl -s -X GET "http://localhost:3000/api/books?genre=Aventura" | jq
 ```
-Iniciar sesión:
+Iniciar sesión y guardar jwt en TOKEN para los siguientes comandos:
 ```bash
-curl -s -X POST http://localhost:3000/api/auth/login \
+TOKEN=$(curl -s -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"juan@ejemplo.com","password":"123456"}' | jq
-```
-*!Guardar token para los siguientes comandos*:
-```bash
-TOKEN='<tu-jwt-token>'
+  -d '{"email":"juan@ejemplo.com","password":"123456"}' | jq -r '.token')
+echo $TOKEN
 ```
 Ver perfil:
 ```bash

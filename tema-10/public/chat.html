@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat T10</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 20px auto; }
+        #chat-box { height: 400px; border: 1px solid #ccc; padding: 10px; overflow-y: scroll; margin-bottom: 10px; }
+        .system-msg { color: #888; font-style: italic; font-size: 0.9em; }
+        #typing-indicator { height: 20px; color: #666; font-size: 0.8em; font-style: italic; }
+    </style>
+</head>
+<body>
+    <h2>Sala de Chat</h2>
+    
+    <div id="chat-box"></div>
+    <div id="typing-indicator"></div>
+    
+    <div style="display: flex; gap: 10px;">
+        <input type="text" id="message-input" placeholder="Escribe tu mensaje..." style="flex-grow: 1;">
+        <button onclick="sendMessage()">Enviar</button>
+    </div>
+
+    <script>
+        // 1. Obtener el JWT (Asumimos que se guardó en localStorage en el login)
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('Debes iniciar sesión primero');
+            window.location.href = '/index.html';
+        }
+
+        // 2. Iniciar conexión enviando el token para pasar el middleware
+        const socket = io({
+            auth: { token: token }
+        });
+
+        // Para este ejemplo, hardcodeamos un ID de sala. 
+        // En producción, esto se selecciona dinámicamente en la UI.
+        const currentRoomId = '654321abcdef1234567890ab'; 
+        const chatBox = document.getElementById('chat-box');
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        // 3. Eventos de Conexión
+        socket.on('connect', () => {
+            addSystemMessage('Conectado al servidor.');
+            // Unirse a la sala automáticamente
+            socket.emit('room:join', { roomId: currentRoomId });
+        });
+
+        socket.on('connect_error', (err) => {
+            addSystemMessage(`Error de conexión: ${err.message}`);
+        });
+
+        // 4. Recepción de Mensajes
+        socket.on('chat:message', (data) => {
+            const time = new Date(data.timestamp).toLocaleTimeString();
+            chatBox.innerHTML += `<p><strong>${data.user.username}</strong> <span>(${time})</span>: ${data.content}</p>`;
+            chatBox.scrollTop = chatBox.scrollHeight; // Auto-scroll
+        });
+
+        // 5. Eventos de la Sala
+        socket.on('room:user-joined', (data) => {
+            addSystemMessage(`${data.user} se ha unido a la sala.`);
+        });
+
+        socket.on('room:user-left', (data) => {
+            addSystemMessage(`${data.user} ha salido de la sala.`);
+        });
+
+        // 6. Enviar Mensaje
+        function sendMessage() {
+            const input = document.getElementById('message-input');
+            const content = input.value.trim();
+            
+            if (content) {
+                socket.emit('chat:message', { roomId: currentRoomId, content: content });
+                input.value = '';
+            }
+        }
+
+        // 7. Lógica de "Escribiendo..."
+        let typingTimer;
+        document.getElementById('message-input').addEventListener('input', () => {
+            socket.emit('chat:typing', { roomId: currentRoomId });
+        });
+
+        socket.on('chat:typing', (data) => {
+            typingIndicator.textContent = `${data.user} está escribiendo...`;
+            clearTimeout(typingTimer);
+            // Limpiar el mensaje después de 2 segundos de inactividad
+            typingTimer = setTimeout(() => {
+                typingIndicator.textContent = '';
+            }, 2000);
+        });
+
+        // Función auxiliar para pintar mensajes del sistema
+        function addSystemMessage(text) {
+            chatBox.innerHTML += `<p class="system-msg">${text}</p>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>

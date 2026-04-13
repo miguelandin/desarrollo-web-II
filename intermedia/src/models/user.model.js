@@ -7,7 +7,8 @@ const userSchema = new mongoose.Schema(
             required: true,
             unique: true,
             lowercase: true,
-            match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, "Mail not valid"]
+            match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, "e-mail no válido"],
+            index: true
         },
         password: {
             type: String,
@@ -32,7 +33,8 @@ const userSchema = new mongoose.Schema(
                 values: ['admin', 'guest'],
                 message: 'El rol debe de ser admin o guest'
             },
-            default: 'admin'
+            default: 'admin',
+            index: true
         },
         status: {
             type: String,
@@ -80,7 +82,8 @@ const userSchema = new mongoose.Schema(
         }
     },
     {
-        timestamps: true
+        timestamps: true,
+        toJSON: { virtuals: true }
     }
 )
 

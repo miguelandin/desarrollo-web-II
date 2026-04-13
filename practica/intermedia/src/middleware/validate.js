@@ -6,6 +6,7 @@ export const validate = (schema) => (req, res, next) => {
         req.body = parsed.body;
         next();
     } catch (err) {
-        next(new AppError(err.errors.map(e => e.message).join(', '), 400));
+        const errorMessages = err.errors.map(e => e.message);
+        next(AppError.validation('Datos de entrada inválidos', errorMessages));
     }
 };

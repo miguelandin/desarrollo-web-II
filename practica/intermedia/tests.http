@@ -1,0 +1,131 @@
+### Variables Globales
+@baseUrl = http://localhost:3000/api
+@accessToken = TU_ACCESS_TOKEN_AQUI
+@refreshToken = TU_REFRESH_TOKEN_AQUI
+
+##############################################
+# 1. REGISTRO Y AUTENTICACIÓN
+##############################################
+
+### Registro de usuario (Punto 1)
+POST {{baseUrl}}/user/register
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "Password123!"
+}
+
+### Validación de email (Punto 2)
+# Nota: Debes obtener el código de 6 dígitos de tu BD
+PUT {{baseUrl}}/user/validation
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "code": "123456"
+}
+
+### Login (Punto 3)
+POST {{baseUrl}}/user/login
+Content-Type: application/json
+
+{
+    "email": "test@example.com",
+    "password": "Password123!"
+}
+
+##############################################
+# 2. ONBOARDING Y PERFIL
+##############################################
+
+### Datos Personales (Punto 4a)
+PUT {{baseUrl}}/user/register
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "name": "Juan",
+    "lastName": "Pérez",
+    "nif": "12345678Z"
+}
+
+### Datos de la Compañía (Punto 4b)
+# Escenario 1: Crear nueva compañía (Admin)
+PATCH {{baseUrl}}/user/company
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "isFreelance": false,
+    "name": "Mi Empresa S.L.",
+    "cif": "B12345678",
+    "address": {
+        "street": "Calle Falsa",
+        "number": "123",
+        "postal": "28001",
+        "city": "Madrid",
+        "province": "Madrid"
+    }
+}
+
+### Subir Logo de la Compañía (Punto 5)
+PATCH {{baseUrl}}/user/logo
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="logo"; filename="logo.png"
+Content-Type: image/png
+
+< ./ruta/a/tu/logo.png
+--boundary--
+
+### Obtener Perfil Completo (Punto 6)
+GET {{baseUrl}}/user
+Authorization: Bearer {{accessToken}}
+
+##############################################
+# 3. GESTIÓN DE SESIÓN Y CUENTA
+##############################################
+
+### Refrescar Token (Punto 7)
+POST {{baseUrl}}/user/refresh
+Content-Type: application/json
+
+{
+    "refreshToken": "{{refreshToken}}"
+}
+
+### Logout (Punto 7)
+POST {{baseUrl}}/user/logout
+Authorization: Bearer {{accessToken}}
+
+### Cambiar Contraseña (Punto 9 - Bonus)
+PUT {{baseUrl}}/user/password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "currentPassword": "Password123!",
+    "newPassword": "NewPassword456!"
+}
+
+### Eliminar Usuario (Punto 8)
+# Usa ?soft=true para borrado lógico
+DELETE {{baseUrl}}/user?soft=true
+Authorization: Bearer {{accessToken}}
+
+##############################################
+# 4. ADMINISTRACIÓN (Solo Admin)
+##############################################
+
+### Invitar Compañero (Punto 10)
+POST {{baseUrl}}/user/invite
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "email": "companero@example.com",
+    "name": "Pedro"
+}

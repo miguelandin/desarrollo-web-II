@@ -15,8 +15,6 @@ const companySchema = new mongoose.Schema(
         cif: {
             type: String,
             required: true,
-            minlength: 9,
-            maxlength: 9
         },
         address: {
             street: {
@@ -39,7 +37,8 @@ const companySchema = new mongoose.Schema(
             type: String,
         },
         isFreelance: {
-            type: Boolean
+            type: Boolean,
+            required: true
         },
         deleted: {
             type: Boolean,

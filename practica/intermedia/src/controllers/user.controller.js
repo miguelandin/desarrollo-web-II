@@ -58,3 +58,5 @@ export const register = async (req, res) => {
         handleHttpError(res, 'error_register_user')
     }
 }
+
+// PUT /api/user/validation

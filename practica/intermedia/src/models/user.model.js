@@ -18,14 +18,12 @@ const userSchema = new mongoose.Schema(
         },
         name: {
             type: String,
-            required: [true, 'Nombre requerido']
         },
         lastName: {
             type: String
         },
         nif: {
             type: String,
-            required: [true, 'NIF requerido']
         },
         role: {
             type: String,

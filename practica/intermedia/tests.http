@@ -97,10 +97,14 @@ Content-Type: application/json
     "refreshToken": "{{refreshToken}}"
 }
 
-### Logout (Punto 7)
+### Logout (Punt 7b)
 POST {{baseUrl}}/user/logout
 Authorization: Bearer {{accessToken}}
+Content-Type: application/json
 
+{
+    "refreshToken": "{{refreshToken}}"
+}
 ### Cambiar Contraseña (Punto 9 - Bonus)
 PUT {{baseUrl}}/user/password
 Authorization: Bearer {{accessToken}}

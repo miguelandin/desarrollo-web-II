@@ -2,19 +2,8 @@ import { z } from 'zod';
 
 export const registerSchema = z.object({
     body: z.object({
-        email: z.string().email().trim().transform((val) => val.toLowerCase()),
-        password: z.string().min(8),
-        name: z.string().min(1),
-        lastName: z.string().optional(),
-        nif: z.string().min(1),
-        address: z.object({
-            street: z.string().optional(),
-            number: z.string().optional(),
-            postal: z.string().optional(),
-            city: z.string().optional(),
-            province: z.string().optional()
-        }).optional(),
-        isFreelance: z.boolean().optional().default(false)
+        email: z.string().email("Email inválido").trim().transform(val => val.toLowerCase()),
+        password: z.string().min(8, "Mínimo 8 caracteres")
     }).strict()
 })
 
@@ -35,7 +24,15 @@ export const personalDataSchema = z.object({
     body: z.object({
         name: z.string().min(1),
         lastName: z.string().min(1),
-        nif: z.string().min(9)
+        nif: z.string().min(9),
+        // AÑADIR ESTO:
+        address: z.object({
+            street: z.string().optional(),
+            number: z.string().optional(),
+            postal: z.string().optional(),
+            city: z.string().optional(),
+            province: z.string().optional()
+        }).optional()
     })
 })
 

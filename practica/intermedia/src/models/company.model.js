@@ -38,7 +38,6 @@ const companySchema = new mongoose.Schema(
         },
         isFreelance: {
             type: Boolean,
-            required: true
         },
         deleted: {
             type: Boolean,

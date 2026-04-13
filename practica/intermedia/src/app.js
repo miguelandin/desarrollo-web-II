@@ -9,6 +9,17 @@ const app = express();
 
 // Seguridad T6
 app.use(helmet());
+
+app.use((req, res, next) => { // para que funcione las querys (HOT FIX)
+    Object.defineProperty(req, 'query', {
+        value: { ...req.query },
+        writable: true,
+        configurable: true,
+        enumerable: true
+    });
+    next();
+});
+
 app.use(mongoSanitize());
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 100 });
 app.use(limiter);

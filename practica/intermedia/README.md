@@ -49,17 +49,17 @@ curl -s -X PATCH http://localhost:3000/api/user/company \
   }' | jq
 ```
 
-#### See user profile
-```bash
-curl -s -X GET http://localhost:3000/api/user \
-  -H "Authorization: Bearer $TOKEN" | jq
-```
-
 #### Upload company logo
 ```bash
 curl -s -X PATCH http://localhost:3000/api/user/logo \
   -H "Authorization: Bearer $TOKEN" \
-  -F "logo=@logo.png" | jq
+  -F "logo=@<logo.jpg>" | jq   
+```
+
+#### See user profile
+```bash
+curl -s -X GET http://localhost:3000/api/user \
+  -H "Authorization: Bearer $TOKEN" | jq
 ```
 
 #### Refresh token
@@ -79,8 +79,9 @@ curl -s -X PUT http://localhost:3000/api/user/password \
 #### Logout
 ```bash
 curl -s -X POST http://localhost:3000/api/user/logout \
-  -H "Authorization: Bearer $TOKEN" | jq
-```
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"refreshToken": "<TU_REFRESH_TOKEN>"}' | jq```
 
 #### Send invite
 (admin role required)

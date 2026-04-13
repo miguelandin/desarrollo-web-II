@@ -5,6 +5,7 @@ import { handleHttpError } from '../utils/handleError.js';
 import { tokenSign, refreshTokenSign } from '../utils/handleJwt.js';
 import jwt from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
+import crypto from 'crypto';
 import notificationService from '../services/notification.service.js';
 
 // POST /api/user/register
@@ -35,6 +36,10 @@ export const register = async (req, res) => {
         const accessToken = tokenSign(user)
         const refreshToken = refreshTokenSign(user)
 
+        if (notificationService) {
+            notificationService.emit('user:registered', user)
+        }
+
         const data = {
             accessToken,
             refreshToken,
@@ -47,6 +52,7 @@ export const register = async (req, res) => {
 
         res.status(201).json(data)
     } catch (err) {
+        console.log(err)
         return handleHttpError(res, 'error_register_user', 500)
     }
 }
@@ -69,6 +75,11 @@ export const validateEmail = async (req, res) => {
             user.status = 'verified'
             user.verificationCode = undefined
             await user.save()
+
+            if (notificationService) {
+                notificationService.emit('user:verified', user)
+            }
+
             return res.status(200).json({ message: 'Email verificado' })
         } else {
             user.verificationAttempts -= 1
@@ -109,6 +120,7 @@ export const login = async (req, res) => {
             return handleHttpError(res, 'invalid_credentials', 401)
         }
     } catch (err) {
+        console.log(err)
         return handleHttpError(res, 'error_login', 500)
     }
 }
@@ -116,9 +128,19 @@ export const login = async (req, res) => {
 // PUT /api/user/register (Onboarding personal)
 export const updatePersonalData = async (req, res) => {
     try {
-        const user = await User.findByIdAndUpdate(req.user._id, req.body, { new: true })
+        const allowedFields = ['name', 'lastName', 'nif', 'address']
+        const updateData = {}
+
+        allowedFields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                updateData[field] = req.body[field]
+            }
+        })
+
+        const user = await User.findByIdAndUpdate(req.user._id, updateData, { new: true })
         res.status(200).json(user)
     } catch (err) {
+        console.log(err)
         return handleHttpError(res, 'error_update_personal_data', 500)
     }
 }
@@ -158,6 +180,7 @@ export const updateCompany = async (req, res) => {
         await user.save()
         res.status(200).json({ user, company })
     } catch (err) {
+        console.log(err)
         return handleHttpError(res, 'error_update_company', 500)
     }
 }
@@ -175,6 +198,7 @@ export const uploadCompanyLogo = async (req, res) => {
         )
         res.status(200).json({ message: 'Logo actualizado', url: company.logo })
     } catch (err) {
+        console.log(err)
         return handleHttpError(res, 'error_upload_logo', 500)
     }
 }
@@ -185,6 +209,7 @@ export const getUserProfile = async (req, res) => {
         const user = await User.findById(req.user._id).populate('company')
         res.status(200).json(user)
     } catch (err) {
+        console.log(err)
         return handleHttpError(res, 'error_get_profile', 500)
     }
 }
@@ -207,13 +232,32 @@ export const refreshToken = async (req, res) => {
         )
         res.status(200).json({ accessToken })
     } catch (err) {
+        console.log(err)
         return handleHttpError(res, 'invalid_or_expired_token', 401)
     }
 }
 
 // POST /api/user/logout
 export const logout = async (req, res) => {
-    res.status(200).json({ message: 'Sesión cerrada. Invalide el token en el cliente.' })
+    try {
+        const { refreshToken } = req.body
+
+        if (!refreshToken) {
+            return handleHttpError(res, 'refresh_token_required', 401)
+        }
+
+        try {
+            jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET)
+        } catch (err) {
+            console.log(err)
+            return handleHttpError(res, 'invalid_token', 401)
+        }
+
+        res.status(200).json({ message: 'Sesión cerrada correctamente' })
+    } catch (err) {
+        console.log(err)
+        return handleHttpError(res, 'error_logout', 500)
+    }
 }
 
 // DELETE /api/user
@@ -226,11 +270,18 @@ export const deleteUser = async (req, res) => {
             await User.findByIdAndDelete(req.user._id)
         }
 
-        // Asumiendo que has implementado o importado tu notificationService
-        if (notificationService) notificationService.emit('user:deleted', req.user._id)
+        if (notificationService) {
+            try {
+                notificationService.emit('user:deleted', req.user._id)
+            } catch (emitErr) {
+                console.log(err)
+                console.error('Error emitiendo evento user:deleted:', emitErr)
+            }
+        }
 
         res.status(200).json({ message: 'Usuario eliminado' })
     } catch (err) {
+        console.log(err)
         return handleHttpError(res, 'error_delete_user', 500)
     }
 }
@@ -249,6 +300,7 @@ export const changePassword = async (req, res) => {
         await user.save()
         res.status(200).json({ message: 'Contraseña actualizada' })
     } catch (err) {
+        console.log(err)
         return handleHttpError(res, 'error_change_password', 500)
     }
 }
@@ -257,7 +309,9 @@ export const changePassword = async (req, res) => {
 export const inviteUser = async (req, res) => {
     try {
         const { email, name } = req.body
-        const hash = await bcryptjs.hash('Password123!', 10) // Contraseña por defecto
+
+        const tempPassword = crypto.randomBytes(8).toString('hex')
+        const hash = await bcryptjs.hash(tempPassword, 10)
 
         const newUser = await User.create({
             email,
@@ -268,9 +322,22 @@ export const inviteUser = async (req, res) => {
             status: 'pending'
         })
 
-        if (notificationService) notificationService.emit('user:invited', email)
-        res.status(201).json({ message: 'Usuario invitado', user: newUser })
+        if (notificationService) {
+            notificationService.emit('user:invited', email)
+        }
+
+        res.status(201).json({
+            message: 'Usuario invitado',
+            user: {
+                email: newUser.email,
+                name: newUser.name,
+                role: newUser.role,
+                status: newUser.status
+            },
+            temporaryPassword: tempPassword
+        })
     } catch (err) {
+        console.log(err)
         return handleHttpError(res, 'error_invite_user', 500)
     }
 }

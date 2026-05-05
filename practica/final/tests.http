@@ -2,6 +2,9 @@
 @baseUrl = http://localhost:3000/api
 @accessToken = TU_ACCESS_TOKEN_AQUI
 @refreshToken = TU_REFRESH_TOKEN_AQUI
+@clientId = TU_CLIENT_ID_AQUI
+@projectId = TU_PROJECT_ID_AQUI
+@noteId = TU_NOTE_ID_AQUI
 
 ##############################################
 # 1. REGISTRO Y AUTENTICACIÓN
@@ -133,3 +136,228 @@ Content-Type: application/json
     "email": "companero@example.com",
     "name": "Pedro"
 }
+
+##############################################
+# 5. CLIENTES
+##############################################
+
+### Crear cliente
+POST {{baseUrl}}/client
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "name": "Empresa Cliente S.L.",
+    "cif": "B87654321",
+    "email": "cliente@empresa.com",
+    "phone": "612345678",
+    "address": {
+        "street": "Avenida Principal",
+        "number": "42",
+        "postal": "08001",
+        "city": "Barcelona",
+        "province": "Barcelona"
+    }
+}
+
+### Listar clientes (con paginación y filtros)
+GET {{baseUrl}}/client?page=1&limit=10&sort=-createdAt
+Authorization: Bearer {{accessToken}}
+
+### Listar clientes (filtro por nombre)
+GET {{baseUrl}}/client?name=Empresa&sort=name
+Authorization: Bearer {{accessToken}}
+
+### Obtener cliente por ID
+GET {{baseUrl}}/client/{{clientId}}
+Authorization: Bearer {{accessToken}}
+
+### Actualizar cliente
+PUT {{baseUrl}}/client/{{clientId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "name": "Empresa Cliente Actualizada S.L.",
+    "phone": "699887766"
+}
+
+### Archivar cliente (soft delete)
+DELETE {{baseUrl}}/client/{{clientId}}?soft=true
+Authorization: Bearer {{accessToken}}
+
+### Listar clientes archivados
+GET {{baseUrl}}/client/archived
+Authorization: Bearer {{accessToken}}
+
+### Restaurar cliente archivado
+PATCH {{baseUrl}}/client/{{clientId}}/restore
+Authorization: Bearer {{accessToken}}
+
+### Eliminar cliente definitivamente (hard delete)
+DELETE {{baseUrl}}/client/{{clientId}}
+Authorization: Bearer {{accessToken}}
+
+##############################################
+# 6. PROYECTOS
+##############################################
+
+### Crear proyecto
+POST {{baseUrl}}/project
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "name": "Reforma Oficinas 2024",
+    "projectCode": "PRJ001",
+    "client": "{{clientId}}",
+    "email": "proyecto@empresa.com",
+    "notes": "Reforma completa de las oficinas del cliente",
+    "active": true,
+    "address": {
+        "street": "Avenida Principal",
+        "number": "42",
+        "postal": "08001",
+        "city": "Barcelona",
+        "province": "Barcelona"
+    }
+}
+
+### Listar proyectos (con filtros)
+GET {{baseUrl}}/project?page=1&limit=10&sort=-createdAt
+Authorization: Bearer {{accessToken}}
+
+### Listar proyectos por cliente
+GET {{baseUrl}}/project?client={{clientId}}&active=true
+Authorization: Bearer {{accessToken}}
+
+### Obtener proyecto por ID
+GET {{baseUrl}}/project/{{projectId}}
+Authorization: Bearer {{accessToken}}
+
+### Actualizar proyecto
+PUT {{baseUrl}}/project/{{projectId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "name": "Reforma Oficinas 2024 - Fase 2",
+    "notes": "Segunda fase aprobada",
+    "active": true
+}
+
+### Archivar proyecto (soft delete)
+DELETE {{baseUrl}}/project/{{projectId}}?soft=true
+Authorization: Bearer {{accessToken}}
+
+### Listar proyectos archivados
+GET {{baseUrl}}/project/archived
+Authorization: Bearer {{accessToken}}
+
+### Restaurar proyecto archivado
+PATCH {{baseUrl}}/project/{{projectId}}/restore
+Authorization: Bearer {{accessToken}}
+
+### Eliminar proyecto definitivamente (hard delete)
+DELETE {{baseUrl}}/project/{{projectId}}
+Authorization: Bearer {{accessToken}}
+
+##############################################
+# 7. ALBARANES (DELIVERY NOTES)
+##############################################
+
+### Crear albarán de material
+POST {{baseUrl}}/deliverynote
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "format": "material",
+    "client": "{{clientId}}",
+    "project": "{{projectId}}",
+    "workDate": "2024-11-15T09:00:00.000Z",
+    "description": "Suministro de materiales de construcción",
+    "material": "Cemento Portland",
+    "quantity": 50,
+    "unit": "sacos"
+}
+
+### Crear albarán de horas (con workers)
+POST {{baseUrl}}/deliverynote
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "format": "hours",
+    "client": "{{clientId}}",
+    "project": "{{projectId}}",
+    "workDate": "2024-11-15T09:00:00.000Z",
+    "description": "Jornada de trabajo en obra",
+    "workers": [
+        { "name": "Juan García", "hours": 8 },
+        { "name": "María López", "hours": 6 }
+    ]
+}
+
+### Crear albarán de horas (horas totales sin workers)
+POST {{baseUrl}}/deliverynote
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+    "format": "hours",
+    "client": "{{clientId}}",
+    "project": "{{projectId}}",
+    "workDate": "2024-11-16T09:00:00.000Z",
+    "description": "Trabajo de coordinación",
+    "hours": 4
+}
+
+### Listar albaranes (con filtros)
+GET {{baseUrl}}/deliverynote?page=1&limit=10&sort=-workDate
+Authorization: Bearer {{accessToken}}
+
+### Listar albaranes por proyecto y formato
+GET {{baseUrl}}/deliverynote?project={{projectId}}&format=material&signed=false
+Authorization: Bearer {{accessToken}}
+
+### Listar albaranes por rango de fechas
+GET {{baseUrl}}/deliverynote?from=2024-11-01&to=2024-11-30
+Authorization: Bearer {{accessToken}}
+
+### Obtener albarán por ID (con populate)
+GET {{baseUrl}}/deliverynote/{{noteId}}
+Authorization: Bearer {{accessToken}}
+
+### Firmar albarán con imagen de firma
+# Nota: requiere un archivo de imagen real
+PATCH {{baseUrl}}/deliverynote/{{noteId}}/sign
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="signature"; filename="firma.png"
+Content-Type: image/png
+
+< ./ruta/a/tu/firma.png
+--boundary--
+
+### Descargar albarán en PDF
+# Si está firmado → redirect 302 a Cloudinary
+# Si no está firmado → descarga PDF generado al vuelo
+GET {{baseUrl}}/deliverynote/pdf/{{noteId}}
+Authorization: Bearer {{accessToken}}
+
+### Eliminar albarán (solo si no está firmado)
+DELETE {{baseUrl}}/deliverynote/{{noteId}}
+Authorization: Bearer {{accessToken}}
+
+##############################################
+# 8. HEALTH CHECK Y DOCS
+##############################################
+
+### Health check
+GET http://localhost:3000/health
+
+### Swagger UI (abrir en navegador)
+# GET http://localhost:3000/api-docs

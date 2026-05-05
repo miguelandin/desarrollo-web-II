@@ -1,162 +1,118 @@
 import User from '../models/user.model.js';
 import Company from '../models/company.model.js';
 import { encrypt, compare } from '../utils/handlePassword.js';
-import { handleHttpError } from '../utils/handleError.js';
 import { tokenSign, refreshTokenSign } from '../utils/handleJwt.js';
+import AppError from '../utils/AppError.js';
 import jwt from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
 import crypto from 'crypto';
 import notificationService from '../services/notification.service.js';
 
 // POST /api/user/register
-export const register = async (req, res) => {
+export const register = async (req, res, next) => {
     try {
-        const { email, password, name, lastName, nif, address } = req.body
+        const { email, password, name, lastName, nif, address } = req.body;
 
-        const existingUser = await User.findOne({ email: email, status: 'verified' })
-        if (existingUser) {
-            return handleHttpError(res, 'email_already_exists', 409)
-        }
+        const existingUser = await User.findOne({ email, status: 'verified' });
+        if (existingUser) return next(AppError.conflict('Email ya registrado'));
 
-        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString()
-        const hash = await encrypt(password)
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const hash = await encrypt(password);
 
-        const newUser = {
-            email,
-            password: hash,
-            name,
-            lastName,
-            nif,
-            verificationCode,
-            address,
-        }
+        const user = await User.create({ email, password: hash, name, lastName, nif, verificationCode, address });
 
-        const user = await User.create(newUser)
+        const accessToken = tokenSign(user);
+        const refreshToken = refreshTokenSign(user);
 
-        const accessToken = tokenSign(user)
-        const refreshToken = refreshTokenSign(user)
+        notificationService.emit('user:registered', user);
 
-        if (notificationService) {
-            notificationService.emit('user:registered', user)
-        }
-
-        const data = {
+        res.status(201).json({
             accessToken,
             refreshToken,
-            user: {
-                email: user.email,
-                status: user.status,
-                role: user.role
-            }
-        }
-
-        res.status(201).json(data)
+            user: { email: user.email, status: user.status, role: user.role }
+        });
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'error_register_user', 500)
+        next(err);
     }
-}
+};
 
 // PUT /api/user/validation
-export const validateEmail = async (req, res) => {
+export const validateEmail = async (req, res, next) => {
     try {
-        const { code } = req.body
-        const user = await User.findById(req.user._id).select('+verificationCode +verificationAttempts')
+        const { code } = req.body;
+        const user = await User.findById(req.user._id).select('+verificationCode +verificationAttempts');
 
-        if (!user) {
-            return handleHttpError(res, 'user_not_found', 404)
-        }
-
-        if (user.status === 'verified') return handleHttpError(res, 'validation_not_pending', 400)
-
-        if (user.verificationAttempts <= 0) return handleHttpError(res, 'too_many_requests', 429)
+        if (!user) return next(AppError.notFound('Usuario'));
+        if (user.status === 'verified') return next(AppError.badRequest('Email ya verificado'));
+        if (user.verificationAttempts <= 0) return next(AppError.tooManyRequests('Demasiados intentos'));
 
         if (user.verificationCode === code) {
-            user.status = 'verified'
-            user.verificationCode = undefined
-            await user.save()
-
-            if (notificationService) {
-                notificationService.emit('user:verified', user)
-            }
-
-            return res.status(200).json({ message: 'Email verificado' })
+            user.status = 'verified';
+            user.verificationCode = undefined;
+            await user.save();
+            notificationService.emit('user:verified', user);
+            return res.status(200).json({ message: 'Email verificado' });
         } else {
-            user.verificationAttempts -= 1
-            await user.save()
-            return handleHttpError(res, 'incorrect_verification_code', 400)
+            user.verificationAttempts -= 1;
+            await user.save();
+            return next(AppError.badRequest('Código incorrecto'));
         }
     } catch (err) {
-        return handleHttpError(res, 'error_validation_email', 500)
+        next(err);
     }
-}
+};
 
 // POST /api/user/login
-export const login = async (req, res) => {
+export const login = async (req, res, next) => {
     try {
-        const { email, password } = req.body
-        const user = await User.findOne({ email: email, deleted: false }).select('+password')
+        const { email, password } = req.body;
+        const user = await User.findOne({ email, deleted: false }).select('+password');
 
-        if (!user) {
-            return handleHttpError(res, 'user_not_found_or_invalid', 404)
+        if (!user) return next(AppError.notFound('Usuario'));
+
+        if (!(await compare(password, user.password))) {
+            return next(AppError.unauthorized('Credenciales inválidas'));
         }
 
-        if (await compare(password, user.password)) {
-            const accessToken = tokenSign(user)
-            const refreshToken = refreshTokenSign(user)
+        const accessToken = tokenSign(user);
+        const refreshToken = refreshTokenSign(user);
 
-            const data = {
-                accessToken,
-                refreshToken,
-                user: {
-                    email: user.email,
-                    status: user.status,
-                    role: user.role
-                }
-            }
-
-            res.status(200).json(data)
-        } else {
-            return handleHttpError(res, 'invalid_credentials', 401)
-        }
+        res.status(200).json({
+            accessToken,
+            refreshToken,
+            user: { email: user.email, status: user.status, role: user.role }
+        });
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'error_login', 500)
+        next(err);
     }
-}
+};
 
 // PUT /api/user/register (Onboarding personal)
-export const updatePersonalData = async (req, res) => {
+export const updatePersonalData = async (req, res, next) => {
     try {
-        const allowedFields = ['name', 'lastName', 'nif', 'address']
-        const updateData = {}
-
+        const allowedFields = ['name', 'lastName', 'nif', 'address'];
+        const updateData = {};
         allowedFields.forEach(field => {
-            if (req.body[field] !== undefined) {
-                updateData[field] = req.body[field]
-            }
-        })
+            if (req.body[field] !== undefined) updateData[field] = req.body[field];
+        });
 
-        const user = await User.findByIdAndUpdate(req.user._id, updateData, { new: true })
-        res.status(200).json(user)
+        const user = await User.findByIdAndUpdate(req.user._id, updateData, { new: true });
+        res.status(200).json(user);
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'error_update_personal_data', 500)
+        next(err);
     }
-}
+};
 
 // PATCH /api/user/company (Onboarding Company)
-export const updateCompany = async (req, res) => {
+export const updateCompany = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user._id)
-        const { isFreelance, address } = req.body
+        const user = await User.findById(req.user._id);
+        const { isFreelance, address } = req.body;
 
-        let company
+        let company;
 
         if (isFreelance) {
-            if (!user.nif || !user.name) {
-                return handleHttpError(res, 'missing_personal_data', 400)
-            }
+            if (!user.nif || !user.name) return next(AppError.badRequest('Faltan datos personales (nombre y NIF)'));
 
             company = await Company.create({
                 owner: user._id,
@@ -164,180 +120,150 @@ export const updateCompany = async (req, res) => {
                 cif: user.nif,
                 address: address || user.address,
                 isFreelance: true
-            })
+            });
         } else {
-            const { name, cif } = req.body
-            company = await Company.findOne({ cif })
+            const { name, cif } = req.body;
+            company = await Company.findOne({ cif });
 
             if (company) {
-                user.role = 'guest'
+                user.role = 'guest';
             } else {
-                company = await Company.create({ owner: user._id, name, cif, address })
+                company = await Company.create({ owner: user._id, name, cif, address });
             }
         }
 
-        user.company = company._id
-        await user.save()
-        res.status(200).json({ user, company })
+        user.company = company._id;
+        await user.save();
+        res.status(200).json({ user, company });
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'error_update_company', 500)
+        next(err);
     }
-}
+};
 
 // PATCH /api/user/logo
-export const uploadCompanyLogo = async (req, res) => {
+export const uploadCompanyLogo = async (req, res, next) => {
     try {
-        if (!req.file) return handleHttpError(res, 'no_file_uploaded', 400)
-        if (!req.user.company) return handleHttpError(res, 'no_company_associated', 400)
+        if (!req.file) return next(AppError.badRequest('No se subió ningún archivo'));
+        if (!req.user.company) return next(AppError.badRequest('Usuario sin compañía asociada'));
 
         const company = await Company.findByIdAndUpdate(
             req.user.company,
             { logo: req.file.path },
             { new: true }
-        )
-        res.status(200).json({ message: 'Logo actualizado', url: company.logo })
+        );
+        res.status(200).json({ message: 'Logo actualizado', url: company.logo });
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'error_upload_logo', 500)
+        next(err);
     }
-}
+};
 
 // GET /api/user
-export const getUserProfile = async (req, res) => {
+export const getUserProfile = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user._id).populate('company')
-        res.status(200).json(user)
+        const user = await User.findById(req.user._id).populate('company');
+        res.status(200).json(user);
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'error_get_profile', 500)
+        next(err);
     }
-}
+};
 
 // POST /api/user/refresh
-export const refreshToken = async (req, res) => {
+export const refreshToken = async (req, res, next) => {
     try {
-        const { refreshToken } = req.body
-        if (!refreshToken) return handleHttpError(res, 'refresh_token_required', 401)
+        const { refreshToken } = req.body;
+        if (!refreshToken) return next(AppError.unauthorized('Refresh token requerido'));
 
-        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET)
-        const user = await User.findById(decoded._id)
-
-        if (!user || user.deleted) throw new Error()
+        const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+        const user = await User.findById(decoded._id);
+        if (!user || user.deleted) return next(AppError.unauthorized('Usuario no válido'));
 
         const accessToken = jwt.sign(
             { _id: user._id, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN }
-        )
-        res.status(200).json({ accessToken })
+        );
+        res.status(200).json({ accessToken });
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'invalid_or_expired_token', 401)
+        next(AppError.unauthorized('Token inválido o expirado'));
     }
-}
+};
 
 // POST /api/user/logout
-export const logout = async (req, res) => {
+export const logout = async (req, res, next) => {
     try {
-        const { refreshToken } = req.body
-
-        if (!refreshToken) {
-            return handleHttpError(res, 'refresh_token_required', 401)
-        }
+        const { refreshToken } = req.body;
+        if (!refreshToken) return next(AppError.unauthorized('Refresh token requerido'));
 
         try {
-            jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET)
-        } catch (err) {
-            console.log(err)
-            return handleHttpError(res, 'invalid_token', 401)
+            jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+        } catch {
+            return next(AppError.unauthorized('Token inválido'));
         }
 
-        res.status(200).json({ message: 'Sesión cerrada correctamente' })
+        res.status(200).json({ message: 'Sesión cerrada correctamente' });
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'error_logout', 500)
+        next(err);
     }
-}
+};
 
 // DELETE /api/user
-export const deleteUser = async (req, res) => {
+export const deleteUser = async (req, res, next) => {
     try {
-        const isSoft = req.query.soft === 'true'
-        if (isSoft) {
-            await User.findByIdAndUpdate(req.user._id, { deleted: true })
+        if (req.query.soft === 'true') {
+            await User.findByIdAndUpdate(req.user._id, { deleted: true });
         } else {
-            await User.findByIdAndDelete(req.user._id)
+            await User.findByIdAndDelete(req.user._id);
         }
 
-        if (notificationService) {
-            try {
-                notificationService.emit('user:deleted', req.user._id)
-            } catch (emitErr) {
-                console.log(err)
-                console.error('Error emitiendo evento user:deleted:', emitErr)
-            }
-        }
-
-        res.status(200).json({ message: 'Usuario eliminado' })
+        notificationService.emit('user:deleted', req.user._id);
+        res.status(200).json({ message: 'Usuario eliminado' });
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'error_delete_user', 500)
+        next(err);
     }
-}
+};
 
 // PUT /api/user/password
-export const changePassword = async (req, res) => {
+export const changePassword = async (req, res, next) => {
     try {
-        const { currentPassword, newPassword } = req.body
-        const user = await User.findById(req.user._id).select('+password')
+        const { currentPassword, newPassword } = req.body;
+        const user = await User.findById(req.user._id).select('+password');
 
         if (!(await bcryptjs.compare(currentPassword, user.password))) {
-            return handleHttpError(res, 'incorrect_current_password', 400)
+            return next(AppError.badRequest('Contraseña actual incorrecta'));
         }
 
-        user.password = await bcryptjs.hash(newPassword, 10)
-        await user.save()
-        res.status(200).json({ message: 'Contraseña actualizada' })
+        user.password = await bcryptjs.hash(newPassword, 10);
+        await user.save();
+        res.status(200).json({ message: 'Contraseña actualizada' });
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'error_change_password', 500)
+        next(err);
     }
-}
+};
 
 // POST /api/user/invite
-export const inviteUser = async (req, res) => {
+export const inviteUser = async (req, res, next) => {
     try {
-        const { email, name } = req.body
+        const { email, name } = req.body;
 
-        const tempPassword = crypto.randomBytes(8).toString('hex')
-        const hash = await bcryptjs.hash(tempPassword, 10)
+        const tempPassword = crypto.randomBytes(8).toString('hex');
+        const hash = await bcryptjs.hash(tempPassword, 10);
 
         const newUser = await User.create({
-            email,
-            name,
+            email, name,
             password: hash,
             company: req.user.company,
             role: 'guest',
             status: 'pending'
-        })
+        });
 
-        if (notificationService) {
-            notificationService.emit('user:invited', email)
-        }
+        notificationService.emit('user:invited', email);
 
         res.status(201).json({
             message: 'Usuario invitado',
-            user: {
-                email: newUser.email,
-                name: newUser.name,
-                role: newUser.role,
-                status: newUser.status
-            },
+            user: { email: newUser.email, name: newUser.name, role: newUser.role, status: newUser.status },
             temporaryPassword: tempPassword
-        })
+        });
     } catch (err) {
-        console.log(err)
-        return handleHttpError(res, 'error_invite_user', 500)
+        next(err);
     }
-}
+};

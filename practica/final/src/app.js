@@ -3,6 +3,8 @@ import helmet from 'helmet';
 import mongoSanitize from 'express-mongo-sanitize';
 import rateLimit from 'express-rate-limit';
 import mongoose from 'mongoose';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './config/swagger.js';
 import userRoutes from './routes/user.routes.js';
 import clientRoutes from './routes/client.routes.js';
 import projectRoutes from './routes/project.routes.js';
@@ -41,6 +43,9 @@ app.get('/health', (req, res) => {
         timestamp: new Date()
     });
 });
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Rutas
 app.use('/api/user', userRoutes);

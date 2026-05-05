@@ -8,6 +8,7 @@
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",
+        "cloudinary": "^2.10.0",
         "crypto": "^1.0.1",
         "express": "^5.0.0",
         "express-mongo-sanitize": "^2.2.0",
@@ -16,6 +17,9 @@
         "jsonwebtoken": "^9.0.2",
         "mongoose": "^8.2.0",
         "multer": "^1.4.5-lts.1",
+        "nodemailer": "^8.0.7",
+        "pdfkit": "^0.18.0",
+        "sharp": "^0.34.5",
         "zod": "^3.22.4"
     }
 }

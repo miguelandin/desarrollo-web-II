@@ -4,7 +4,10 @@
     "type": "module",
     "scripts": {
         "dev": "node --watch --env-file=.env src/index.js",
-        "start": "node src/index.js"
+        "start": "node src/index.js",
+        "test": "cross-env NODE_ENV=test node --experimental-vm-modules node_modules/jest/bin/jest.js --forceExit --detectOpenHandles",
+        "test:watch": "npm test -- --watch",
+        "test:coverage": "npm test -- --coverage"
     },
     "dependencies": {
         "bcryptjs": "^2.4.3",
@@ -22,5 +25,12 @@
         "sharp": "^0.34.5",
         "socket.io": "^4.8.3",
         "zod": "^3.22.4"
+    },
+    "devDependencies": {
+        "@jest/globals": "^30.3.0",
+        "cross-env": "^10.1.0",
+        "jest": "^30.3.0",
+        "mongodb-memory-server": "^11.1.0",
+        "supertest": "^7.2.2"
     }
 }

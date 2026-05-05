@@ -49,7 +49,10 @@ export const updateClient = async (req, res, next) => {
             if (exists) return next(AppError.conflict('Ya existe un cliente con ese CIF en tu compañía'));
         }
 
-        Object.assign(client, { name, cif, email, phone, address });
+        const updates = Object.fromEntries(
+            Object.entries({ name, cif, email, phone, address }).filter(([, v]) => v !== undefined)
+        );
+        Object.assign(client, updates);
         await client.save();
 
         res.status(200).json(client);

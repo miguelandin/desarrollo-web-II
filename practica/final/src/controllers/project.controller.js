@@ -59,7 +59,10 @@ export const updateProject = async (req, res, next) => {
             if (!clientDoc) return next(AppError.notFound('Cliente'));
         }
 
-        Object.assign(project, { name, projectCode, client, address, email, notes, active });
+        const updates = Object.fromEntries(
+            Object.entries({ name, projectCode, client, address, email, notes, active }).filter(([, v]) => v !== undefined)
+        );
+        Object.assign(project, updates);
         await project.save();
 
         res.status(200).json(project);

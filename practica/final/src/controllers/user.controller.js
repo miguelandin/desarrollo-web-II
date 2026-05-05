@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import bcryptjs from 'bcryptjs';
 import crypto from 'crypto';
 import notificationService from '../services/notification.service.js';
+import { sendVerificationEmail } from '../services/mail.service.js';
 
 // POST /api/user/register
 export const register = async (req, res, next) => {
@@ -25,6 +26,12 @@ export const register = async (req, res, next) => {
         const refreshToken = refreshTokenSign(user);
 
         notificationService.emit('user:registered', user);
+
+        try {
+            await sendVerificationEmail(user.email, verificationCode);
+        } catch {
+            // No bloquear el registro si el email falla
+        }
 
         res.status(201).json({
             accessToken,
@@ -257,6 +264,12 @@ export const inviteUser = async (req, res, next) => {
         });
 
         notificationService.emit('user:invited', email);
+
+        try {
+            await sendVerificationEmail(email, `Tu contraseña temporal es: ${tempPassword}`);
+        } catch {
+            // No bloquear la invitación si el email falla
+        }
 
         res.status(201).json({
             message: 'Usuario invitado',

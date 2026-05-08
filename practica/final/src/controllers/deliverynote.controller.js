@@ -130,45 +130,40 @@ export const signDeliveryNote = async (req, res, next) => {
     try {
         if (!req.file) return next(AppError.badRequest('Imagen de firma requerida'));
 
-        const note = await DeliveryNote.findOne({ _id: req.params.id, company: req.user.company, deleted: false });
+        const note = await DeliveryNote.findOne({ _id: req.params.id, company: req.user.company, deleted: false })
+            .populate('user', 'name lastName email')
+            .populate('company')
+            .populate('client')
+            .populate('project');
         if (!note) return next(AppError.notFound('Albarán'));
         if (note.signed) return next(AppError.conflict('El albarán ya está firmado'));
 
-        // Optimizar imagen con Sharp
         const signatureBuffer = await sharp(req.file.buffer)
             .resize({ width: 800, withoutEnlargement: true })
             .webp({ quality: 80 })
             .toBuffer();
 
-        // Subir firma a Cloudinary
         const { url: signatureUrl } = await uploadImage(signatureBuffer, 'signatures');
 
-        // Poblar datos para generar PDF
-        const populated = await DeliveryNote.findById(note._id)
-            .populate('user', 'name lastName email')
-            .populate('company')
-            .populate('client')
-            .populate('project');
+        note.signed = true;
+        note.signedAt = new Date();
+        note.signatureUrl = signatureUrl;
 
-        populated.signed = true;
-        populated.signedAt = new Date();
-        populated.signatureUrl = signatureUrl;
-
-        // Generar PDF con imagen de firma
-        const pdfBuffer = await generateDeliveryNotePdf(populated, signatureBuffer);
+        const pdfBuffer = await generateDeliveryNotePdf(note, signatureBuffer);
         const { url: pdfUrl } = await uploadPdf(pdfBuffer, 'deliverynotes');
 
-        // Guardar en BD
-        note.signed = true;
-        note.signedAt = populated.signedAt;
-        note.signatureUrl = signatureUrl;
-        note.pdfUrl = pdfUrl;
-        await note.save();
+        const updated = await DeliveryNote.findOneAndUpdate(
+            { _id: req.params.id, company: req.user.company, deleted: false, signed: false },
+            { signed: true, signedAt: note.signedAt, signatureUrl, pdfUrl },
+            { new: true }
+        );
+
+        if (!updated) return next(AppError.conflict('El albarán ya está firmado'));
 
         const io = getIo();
-        if (io) io.to(req.user.company.toString()).emit('deliverynote:signed', note);
+        if (io) io.to(req.user.company.toString()).emit('deliverynote:signed', updated);
 
-        res.status(200).json(note);
+        res.status(200).json(updated);
     } catch (err) {
         next(err);
     }

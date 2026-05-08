@@ -59,6 +59,18 @@ const baseNote = () => ({
     description: 'Trabajo test'
 });
 
+const pngBuffer = Buffer.from([
+    0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+    0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+    0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+    0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+    0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41,
+    0x54, 0x08, 0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
+    0x00, 0x00, 0x02, 0x00, 0x01, 0xE2, 0x21, 0xBC,
+    0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
+    0x44, 0xAE, 0x42, 0x60, 0x82
+]);
+
 describe('POST /api/deliverynote', () => {
     it('crea albarán de horas', async () => {
         const res = await agent.post('/api/deliverynote').set('Authorization', `Bearer ${token}`).send(baseNote());
@@ -128,18 +140,6 @@ describe('GET /api/deliverynote', () => {
 });
 
 describe('PATCH /:id/sign', () => {
-    const pngBuffer = Buffer.from([
-        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-        0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
-        0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
-        0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41,
-        0x54, 0x08, 0xD7, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
-        0x00, 0x00, 0x02, 0x00, 0x01, 0xE2, 0x21, 0xBC,
-        0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
-        0x44, 0xAE, 0x42, 0x60, 0x82
-    ]);
-
     it('firma albarán con imagen', async () => {
         const res = await agent
             .patch(`/api/deliverynote/${noteId}/sign`)
@@ -157,6 +157,47 @@ describe('PATCH /:id/sign', () => {
             .set('Authorization', `Bearer ${token}`)
             .attach('signature', pngBuffer, { filename: 'firma.png', contentType: 'image/png' });
         expect(res.status).toBe(409);
+    });
+});
+
+describe('PATCH /:id/sign — atomicidad findOneAndUpdate', () => {
+    it('llama a findOneAndUpdate con { signed: false } en el filtro', async () => {
+        const create = await agent.post('/api/deliverynote').set('Authorization', `Bearer ${token}`).send(baseNote());
+        const id = create.body._id;
+
+        const spy = jest.spyOn(DeliveryNote, 'findOneAndUpdate');
+
+        await agent
+            .patch(`/api/deliverynote/${id}/sign`)
+            .set('Authorization', `Bearer ${token}`)
+            .attach('signature', pngBuffer, { filename: 'firma.png', contentType: 'image/png' });
+
+        expect(spy).toHaveBeenCalledWith(
+            expect.objectContaining({ signed: false }),
+            expect.any(Object),
+            expect.any(Object)
+        );
+        spy.mockRestore();
+    });
+
+    it('rechaza segunda firma incluso en race condition (nota firmada antes del update)', async () => {
+        const create = await agent.post('/api/deliverynote').set('Authorization', `Bearer ${token}`).send(baseNote());
+        const id = create.body._id;
+
+        // Intercepta findOneAndUpdate: simula que otra request firmó la nota justo antes
+        const original = DeliveryNote.findOneAndUpdate.bind(DeliveryNote);
+        const spy = jest.spyOn(DeliveryNote, 'findOneAndUpdate').mockImplementationOnce(async (filter, update, opts) => {
+            await DeliveryNote.updateOne({ _id: id }, { signed: true });
+            return original(filter, update, opts); // signed: false ya no matchea → null
+        });
+
+        const res = await agent
+            .patch(`/api/deliverynote/${id}/sign`)
+            .set('Authorization', `Bearer ${token}`)
+            .attach('signature', pngBuffer, { filename: 'firma.png', contentType: 'image/png' });
+
+        expect(res.status).toBe(409);
+        spy.mockRestore();
     });
 });
 

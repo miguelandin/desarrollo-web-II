@@ -49,4 +49,6 @@ const companySchema = new mongoose.Schema(
     }
 )
 
+companySchema.index({ cif: 1 }, { unique: true, partialFilterExpression: { deleted: false } });
+
 export default mongoose.model('Company', companySchema)
